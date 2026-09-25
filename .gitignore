@@ -1,0 +1,24 @@
+# Secrets — never commit your API key
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Saved chats (local to each machine)
+chats.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Local AI-assistant / editor tooling
+.claude/
+.agents/

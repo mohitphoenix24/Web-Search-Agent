@@ -1,0 +1,14 @@
+# Backend (API server)
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+
+# LLM providers: Groq (OpenAI-compatible API) and Ollama (local, optional)
+openai==3.19.2
+ollama==0.6.2
+
+# Tools: web search + reading pages
+ddgs==9.16.0
+trafilatura==2.2.0
+
+# Reads GROQ_API_KEY from the .env file
+python-dotenv==1.2.3
