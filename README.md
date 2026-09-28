@@ -14,6 +14,7 @@ I built this while learning agentic AI, one phase at a time. There is no agent f
 - **Live agent trace.** You see every search query it writes, every page it reads and every mistake it fixes, while it is happening.
 - **Streams the answer** word by word, like ChatGPT.
 - **Remembers the chat.** Follow-ups like "and who came second?" work. Chats are saved in SQLite, so they are still there after a refresh or restart.
+- **Light and dark mode.** It follows your system by default, and there's a toggle in the top bar if you want to force one.
 - **Pick your model** from the top bar: fast online models on Groq (free API key), or a local model through Ollama if you already have it running.
 
 <img src="docs/model-picker.png" alt="Model picker with online Groq models and a local Ollama model" width="420">
@@ -70,15 +71,26 @@ Then:
 ```bash
 git clone https://github.com/mohitphoenix24/Web-Search-Agent.git
 cd Web-Search-Agent
-./setup.sh
-./start.sh
+./setup.sh      # only the first time
+./launch.sh     # starts the app
 ```
 
 Open **http://localhost:5180** and ask something.
 
 `setup.sh` checks your Python and Node versions, installs everything (Python packages go into a local `.venv`), asks you to paste your Groq key and then tests the key with Groq. The key is saved in a `.env` file, which is git-ignored, so it never gets pushed by mistake. If you prefer, you can also copy `.env.example` to `.env` and put your key there yourself.
 
-`start.sh` starts the backend on port 8000 and the UI on port 5180. Press `Ctrl+C` to stop both.
+`launch.sh` starts the backend (port 8000) and the UI (port 5180) in the background, waits till both are ready and gives you the link. You can close the terminal after that, the app keeps running. If the app is already running, it stops the old copy first, so you never end up with two copies fighting for the same port.
+
+| Command | What it does |
+|---|---|
+| `./launch.sh` | Start the app, or restart it if it's already running |
+| `./launch.sh stop` | Stop it |
+| `./launch.sh status` | Check if it's running |
+| `./launch.sh logs` | Watch the backend and UI logs (`Ctrl+C` stops watching, not the app) |
+
+It only ever stops *this* app. If some other program is sitting on port 8000 or 5180, it tells you and leaves that program alone.
+
+Prefer to see everything in the terminal? `./start.sh` runs the app in the foreground instead, and `Ctrl+C` stops it.
 
 > **On Windows?** The scripts are bash, so please run them inside WSL.
 
@@ -99,7 +111,8 @@ Web-Search-Agent/
 ├── db.py             # SQLite storage for saved chats
 ├── server.py         # FastAPI: streams agent events, chat endpoints
 ├── setup.sh          # one-time setup
-├── start.sh          # runs backend + frontend
+├── launch.sh         # start/restart in the background, stop, status, logs
+├── start.sh          # same app, but in the foreground
 ├── requirements.txt
 └── frontend/
     └── src/
@@ -135,6 +148,7 @@ I did not write this in one go. Each phase added one idea on top of the last one
 - **Groq's free tier allows 8,000 tokens per minute per model.** A normal question is fine, but a question that needs many searches can hit the limit. The app waits and retries by itself, so the answer just comes slower. You can also switch to another model from the menu, because each model has its own limit.
 - **Search can fail sometimes.** DuckDuckGo occasionally refuses a request, so `web_search` retries up to 3 times.
 - **Some websites block bots** (formula1.com, reuters.com for example). When a page can't be read, the agent sees the error and tries another one.
+- **Models sometimes write a broken tool call.** Groq rejects it and the agent quietly asks the model to try again (you'll see "wrote a tool call it couldn't finish" in the trace). It happens in roughly 1 out of 5 questions with the smaller models.
 - **Answers can still be wrong.** Smaller models especially can misread a page. That's why every answer shows its sources, so please check them for anything important.
 - The **local model** (Qwen3 14B) only shows up as available if you already have [Ollama](https://ollama.com) running with `qwen3:14b` pulled. It's optional, the online models work without it.
 

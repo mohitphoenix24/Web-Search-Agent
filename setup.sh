@@ -64,4 +64,4 @@ except openai.APIConnectionError:
 PY
 ok "Key works"
 
-printf "\n\033[1;32mAll set!\033[0m Start the app with \033[1m./start.sh\033[0m and open \033[1mhttp://localhost:5180\033[0m\n\n"
+printf "\n\033[1;32mAll set!\033[0m Start the app with \033[1m./launch.sh\033[0m and open \033[1mhttp://localhost:5180\033[0m\n\n"

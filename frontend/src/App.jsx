@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { askAgent, deleteChat, getChat, getInfo, listChats } from "./api";
 import ModelPicker from "./components/ModelPicker";
 import Sidebar from "./components/Sidebar";
+import ThemeToggle from "./components/ThemeToggle";
 import Turn from "./components/Turn";
 import { ArrowIcon, BookIcon, Logo, MemoryIcon, MenuIcon, SearchIcon, SparkIcon, StopIcon } from "./components/Icons";
 
@@ -262,6 +263,7 @@ export default function App() {
           </a>
           <span className="phase-badge">Phase 6 · Pick your model</span>
           <div className="spacer" />
+          <ThemeToggle />
           {info?.offline ? (
             <span className="model-pill" title="Start the backend on port 8000">
               <span className="status-dot off" /> Backend offline

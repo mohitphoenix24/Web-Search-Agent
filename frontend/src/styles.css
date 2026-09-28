@@ -31,8 +31,17 @@
   color-scheme: light;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Dark theme.
+   Applied in two cases:
+     1. the browser/OS asks for dark AND the user hasn't chosen light
+     2. the user picked dark with the toggle (data-theme="dark" on <html>)
+   The values are written twice because a @media rule can't share a block. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0b0d13;
     --surface: #12151e;
     --surface-2: #1a1e2a;
@@ -61,6 +70,36 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.22);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0d13;
+  --surface: #12151e;
+  --surface-2: #1a1e2a;
+  --border: #242a38;
+  --border-strong: #353d50;
+  --text: #e9ebf3;
+  --muted: #a2a9ba;
+  --faint: #6e7589;
+  --accent: #8b83ff;
+  --accent-2: #c77dff;
+  --accent-soft: rgba(139, 131, 255, 0.14);
+  --think: #a78bfa;
+  --think-soft: rgba(167, 139, 250, 0.15);
+  --search: #60a5fa;
+  --search-soft: rgba(96, 165, 250, 0.14);
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.13);
+  --memory: #f472b6;
+  --memory-soft: rgba(244, 114, 182, 0.13);
+  --read: #2dd4bf;
+  --read-soft: rgba(45, 212, 191, 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.13);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.22);
+  color-scheme: dark;
 }
 
 /* ---------- Base ---------- */
@@ -765,6 +804,9 @@ a { color: inherit; }
   border-radius: 10px;
   cursor: pointer;
 }
+.icon-btn:hover { border-color: var(--border-strong); background: var(--surface); }
+.theme-btn { color: var(--muted); }
+.theme-btn:hover { color: var(--text); }
 .menu-btn { display: none; }
 .backdrop { display: none; }
 
