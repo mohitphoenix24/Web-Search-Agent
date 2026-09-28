@@ -6,9 +6,10 @@ uvicorn[standard]==0.54.0
 openai==3.19.2
 ollama==0.6.2
 
-# Tools: web search + reading pages
+# Tools: web search (DuckDuckGo + Tavily) and reading pages
 ddgs==9.16.0
 trafilatura==2.2.0
+httpx==0.28.1
 
 # Reads GROQ_API_KEY from the .env file
 python-dotenv==1.2.3

@@ -111,6 +111,12 @@ function SearchItem({ item }) {
         <SearchIcon size={12} />
         <span>{item.args.query}</span>
       </div>
+      {/* which search engine actually ran (Tavily falls back to DuckDuckGo) */}
+      {item.result?.engine && (
+        <span className={`engine-tag ${item.result.engine}`}>
+          {item.result.engine === "tavily" ? "Tavily" : "DuckDuckGo"}
+        </span>
+      )}
 
       {!running && (
         <>

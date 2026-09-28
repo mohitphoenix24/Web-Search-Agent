@@ -155,15 +155,17 @@ class SourceList:
 def run_web_search(args: dict, sources: SourceList) -> tuple[dict, str]:
     query = args["query"]
     try:
-        results = web_search(query)
+        # web_search picks the engine (Tavily if a key is set, else DuckDuckGo)
+        # and tells us which one it actually used, so the UI can show it.
+        engine, results = web_search(query)
     except Exception as e:  # tools can fail — the agent should see that too
         return {"query": query, "results": [], "error": str(e)[:200]}, f"Search failed: {e}"
     if not results:
-        return {"query": query, "results": []}, "No results found. Try a different query."
+        return {"query": query, "results": [], "engine": engine}, "No results found. Try a different query."
 
     numbered = [{**r, "id": sources.add(r["title"], r["url"], r["snippet"])} for r in results]
     text = "\n\n".join(f"[{r['id']}] {r['title']}\nURL: {r['url']}\n{r['snippet']}" for r in numbered)
-    return {"query": query, "results": numbered}, text
+    return {"query": query, "results": numbered, "engine": engine}, text
 
 
 def run_read_page(args: dict, sources: SourceList) -> tuple[dict, str]:

@@ -51,6 +51,24 @@ else
   ok "Saved in .env (git ignores this file, so it won't be pushed)"
 fi
 
+step "Tavily search key (optional)"
+if [ -n "${TAVILY_API_KEY:-}" ] || grep -qs '^TAVILY_API_KEY=tvly' .env; then
+  ok "Found — the agent will search with Tavily"
+else
+  echo "    Tavily is a search engine made for AI agents. It gives better"
+  echo "    snippets than a plain web search, and the free tier is generous:"
+  echo "    https://app.tavily.com"
+  read -rsp "    Paste a Tavily key, or just press Enter to use DuckDuckGo: " tkey
+  echo
+  if [ -n "$tkey" ]; then
+    printf 'TAVILY_API_KEY=%s\n' "$tkey" >> .env
+    chmod 600 .env
+    ok "Saved in .env"
+  else
+    ok "Skipped — the agent will use DuckDuckGo (free, no key)"
+  fi
+fi
+
 step "Testing the key with Groq"
 .venv/bin/python - <<'PY' || fail "Key check failed (see above). Fix .env and run ./setup.sh again."
 import openai

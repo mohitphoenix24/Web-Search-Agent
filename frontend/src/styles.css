@@ -590,6 +590,18 @@ a { color: inherit; }
   overflow-wrap: anywhere;
 }
 .query-chip svg { flex: none; margin-top: 3px; color: var(--search); }
+.engine-tag {
+  display: inline-block;
+  margin-top: 8px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 650;
+  border-radius: 999px;
+  vertical-align: 2px;
+}
+.engine-tag.tavily { color: var(--search); background: var(--search-soft); }
+.engine-tag.duckduckgo { color: var(--muted); background: var(--surface-2); }
 .results-toggle {
   display: flex;
   align-items: center;
