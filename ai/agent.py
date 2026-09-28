@@ -43,8 +43,8 @@ from datetime import date
 
 from openai import APIError
 
-from llm import DEFAULT_MODEL, chat_stream
-from tools import read_page, web_search
+from ai.llm import DEFAULT_MODEL, chat_stream
+from ai.tools import read_page, web_search
 
 MAX_STEPS = 8          # safety limit so the agent can't loop forever
 MAX_HISTORY_TURNS = 5  # how many earlier Q&A turns we send as memory

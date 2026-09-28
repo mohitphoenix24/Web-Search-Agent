@@ -21,8 +21,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import db
-from agent import MAX_HISTORY_TURNS, MAX_STEPS, is_bad_tool_call, run_agent
-from llm import DEFAULT_MODEL, available_models, get_model
+from ai.agent import MAX_HISTORY_TURNS, MAX_STEPS, is_bad_tool_call, run_agent
+from ai.llm import DEFAULT_MODEL, available_models, get_model
 
 app = FastAPI(title="Web Search Agent")
 db.init()

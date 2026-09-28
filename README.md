@@ -53,8 +53,8 @@ The server streams every step to the browser as it happens (NDJSON), that's how 
 
 | Part | What I used |
 |---|---|
-| Agent loop | Plain Python, no framework ([agent.py](agent.py)) |
-| LLMs | Groq (OpenAI-compatible API) and Ollama, behind one small adapter ([llm.py](llm.py)) |
+| Agent loop | Plain Python, no framework ([ai/agent.py](ai/agent.py)) |
+| LLMs | Groq (OpenAI-compatible API) and Ollama, behind one small adapter ([ai/llm.py](ai/llm.py)) |
 | Tools | Tavily search API with a `ddgs` (DuckDuckGo) fallback, `trafilatura` for pulling the main text out of a page |
 | Backend | FastAPI + Uvicorn, SQLite for saved chats |
 | Frontend | React 19 + Vite, plain CSS (light and dark mode), `react-markdown` |
@@ -107,14 +107,15 @@ Prefer to see everything in the terminal? `./start.sh` runs the app in the foreg
 
 ```
 Web-Search-Agent/
-├── agent.py          # the ReAct agent loop, tools menu, memory, citations
-├── llm.py            # model list + one adapter for Groq and one for Ollama
-├── tools.py          # web_search() (Tavily or DuckDuckGo) and read_page()
-├── db.py             # SQLite storage for saved chats
-├── server.py         # FastAPI: streams agent events, chat endpoints
-├── setup.sh          # one-time setup
-├── launch.sh         # start/restart in the background, stop, status, logs
-├── start.sh          # same app, but in the foreground
+├── ai/                    # the AI side of the project — everything above the API layer
+│   ├── agent.py           # the ReAct agent loop, tools menu, memory, citations
+│   ├── llm.py             # model list + one adapter for Groq and one for Ollama
+│   └── tools.py           # web_search() (Tavily or DuckDuckGo) and read_page()
+├── db.py                  # SQLite storage for saved chats
+├── server.py              # FastAPI: streams agent events, chat endpoints
+├── setup.sh               # one-time setup
+├── launch.sh              # start/restart in the background, stop, status, logs
+├── start.sh               # same app, but in the foreground
 ├── requirements.txt
 └── frontend/
     └── src/
@@ -123,13 +124,13 @@ Web-Search-Agent/
         └── components/       # Trace, Answer, Sources, Sidebar, ModelPicker
 ```
 
-The main Python files also run on their own from the terminal, which is handy while learning:
+The `ai/` files also run on their own from the terminal (as modules, with `-m`, since they live inside a package), which is handy while learning:
 
 ```bash
-.venv/bin/python tools.py                          # try the two tools
-.venv/bin/python llm.py                            # every model says hi
-.venv/bin/python agent.py                          # a 2-question chat in the terminal
-.venv/bin/python agent.py openai/gpt-oss-120b      # same, with another model
+.venv/bin/python -m ai.tools                          # try the two tools
+.venv/bin/python -m ai.llm                            # every model says hi
+.venv/bin/python -m ai.agent                          # a 2-question chat in the terminal
+.venv/bin/python -m ai.agent openai/gpt-oss-120b      # same, with another model
 ```
 
 ## How I built it (the phases)

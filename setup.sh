@@ -72,7 +72,7 @@ fi
 step "Testing the key with Groq"
 .venv/bin/python - <<'PY' || fail "Key check failed (see above). Fix .env and run ./setup.sh again."
 import openai
-from llm import groq_client
+from ai.llm import groq_client
 try:
     groq_client.with_options(max_retries=1, timeout=15).models.list()
 except openai.AuthenticationError:
