@@ -9,6 +9,9 @@ __pycache__/
 # Saved chats (local to each machine)
 chats.db
 
+# launch.sh: pid files and logs
+.run/
+
 # Frontend
 frontend/node_modules/
 frontend/dist/
