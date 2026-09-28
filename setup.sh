@@ -36,50 +36,76 @@ step "Installing frontend packages (npm)"
 (cd frontend && npm ci --no-audit --no-fund --loglevel=error)
 ok "Done"
 
-step "Groq API key (for the online models)"
-if [ -n "${GROQ_API_KEY:-}" ]; then
-  ok "Using GROQ_API_KEY from your environment"
-elif grep -qs '^GROQ_API_KEY=gsk_' .env; then
-  ok "Found in .env"
-else
-  echo "    Groq gives a free API key: https://console.groq.com/keys"
-  read -rsp "    Paste your key here (it stays hidden): " key
+# --- API keys --------------------------------------------------------------
+# has_key NAME PREFIX: is the key set, in the environment or in .env?
+has_key() { [ -n "${!1:-}" ] || grep -qs "^$1=$2" .env; }
+
+# save_key NAME VALUE: add (or replace) one line in .env, and never touch the
+# other keys already in there. umask 077 keeps the file readable only by you.
+save_key() {
+  ( umask 077
+    touch .env
+    { grep -v "^$1=" .env || true; } > .env.tmp
+    printf '%s=%s\n' "$1" "$2" >> .env.tmp
+    mv .env.tmp .env )
+}
+
+# ask_key NAME "prompt": ask for a key (hidden), save it if one was given
+ask_key() {
+  read -rsp "    $2 " value
   echo
-  [ -n "$key" ] || fail "No key entered. Run ./setup.sh again once you have one."
-  printf 'GROQ_API_KEY=%s\n' "$key" > .env
-  chmod 600 .env
-  ok "Saved in .env (git ignores this file, so it won't be pushed)"
+  if [ -n "$value" ]; then save_key "$1" "$value" && ok "Saved in .env (git ignores this file)"; else ok "Skipped"; fi
+}
+
+step "API keys for the online models"
+echo "    You need at least one. OpenAI is paid and gives the best answers;"
+echo "    Groq has a free tier."
+if has_key OPENAI_API_KEY sk-; then
+  ok "OpenAI key found"
+else
+  echo "    OpenAI key: https://platform.openai.com/api-keys"
+  ask_key OPENAI_API_KEY "Paste it (hidden), or press Enter to skip:"
 fi
+if has_key GROQ_API_KEY gsk_; then
+  ok "Groq key found"
+else
+  echo "    Groq key (free): https://console.groq.com/keys"
+  ask_key GROQ_API_KEY "Paste it (hidden), or press Enter to skip:"
+fi
+has_key OPENAI_API_KEY sk- || has_key GROQ_API_KEY gsk_ \
+  || fail "You need at least one of the two keys. Run ./setup.sh again once you have one."
 
 step "Tavily search key (optional)"
-if [ -n "${TAVILY_API_KEY:-}" ] || grep -qs '^TAVILY_API_KEY=tvly' .env; then
+if has_key TAVILY_API_KEY tvly; then
   ok "Found — the agent will search with Tavily"
 else
   echo "    Tavily is a search engine made for AI agents. It gives better"
   echo "    snippets than a plain web search, and the free tier is generous:"
   echo "    https://app.tavily.com"
-  read -rsp "    Paste a Tavily key, or just press Enter to use DuckDuckGo: " tkey
-  echo
-  if [ -n "$tkey" ]; then
-    printf 'TAVILY_API_KEY=%s\n' "$tkey" >> .env
-    chmod 600 .env
-    ok "Saved in .env"
-  else
-    ok "Skipped — the agent will use DuckDuckGo (free, no key)"
-  fi
+  ask_key TAVILY_API_KEY "Paste a Tavily key, or press Enter to use DuckDuckGo:"
 fi
 
-step "Testing the key with Groq"
-.venv/bin/python - <<'PY' || fail "Key check failed (see above). Fix .env and run ./setup.sh again."
-import openai
-from ai.llm import groq_client
-try:
-    groq_client.with_options(max_retries=1, timeout=15).models.list()
-except openai.AuthenticationError:
-    raise SystemExit("    Groq says this key is invalid.")
-except openai.APIConnectionError:
-    raise SystemExit("    Couldn't reach Groq. Check your internet connection.")
+step "Testing your keys"
+.venv/bin/python - <<'PY' || fail "A key didn't work (see above). Fix it in .env and run ./setup.sh again."
+import os, openai
+from ai.llm import PROVIDERS, online_clients
+
+failed = False
+for name, client in online_clients.items():
+    key = PROVIDERS[name]["key"]
+    if not os.environ.get(key):
+        continue
+    label = PROVIDERS[name]["label"].split("· ")[1]
+    try:
+        client.with_options(max_retries=1, timeout=15).models.list()
+        print(f"    \033[32m✔\033[0m {label} key works")
+    except openai.AuthenticationError:
+        print(f"    \033[31m✘ {label} says this key is invalid ({key})\033[0m")
+        failed = True
+    except openai.APIConnectionError:
+        print(f"    \033[31m✘ Couldn't reach {label}. Check your internet connection.\033[0m")
+        failed = True
+raise SystemExit(1 if failed else 0)
 PY
-ok "Key works"
 
 printf "\n\033[1;32mAll set!\033[0m Start the app with \033[1m./launch.sh\033[0m and open \033[1mhttp://localhost:5180\033[0m\n\n"
