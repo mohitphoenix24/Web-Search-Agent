@@ -845,6 +845,7 @@ a { color: inherit; }
   font-weight: 650;
   border-radius: 999px;
 }
+.provider-tag.openai,
 .provider-tag.groq { color: var(--search); background: var(--search-soft); }
 .provider-tag.ollama { color: var(--read); background: var(--read-soft); }
 .model-menu {

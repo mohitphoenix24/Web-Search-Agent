@@ -17,9 +17,9 @@ I built this while learning agentic AI, one phase at a time. There is no agent f
 - **Remembers the chat.** Follow-ups like "and who came second?" work. Chats are saved in SQLite, so they are still there after a refresh or restart.
 - **Light and dark mode.** It follows your system by default, and there's a toggle in the top bar if you want to force one.
 - **Evals.** A fixed set of test questions that scores the agent automatically, so you can compare models or prompt changes with a number instead of a feeling.
-- **Pick your model** from the top bar: fast online models on Groq (free API key), or a local model through Ollama if you already have it running.
+- **Pick your model** from the top bar: OpenAI's GPT-5 models (paid, the best answers), free models on Groq, or a local model through Ollama if you already have it running.
 
-<img src="docs/model-picker.png" alt="Model picker with online Groq models and a local Ollama model" width="420">
+<img src="docs/model-picker.png" alt="Model picker with online and local models" width="420">
 
 ## How it works
 
@@ -41,7 +41,7 @@ This is called the **ReAct** loop (Reason + Act). One important thing that confu
 The full flow of one question:
 
 ```
-React UI  ──question──>  FastAPI server  ──>  agent loop  ──>  LLM (Groq / Ollama)
+React UI  ──question──>  FastAPI server  ──>  agent loop  ──>  LLM (OpenAI / Groq / Ollama)
     ^                        │                    │
     │                        │                    └──>  tools: web_search, read_page
     └──── live events ───────┘
@@ -55,7 +55,7 @@ The server streams every step to the browser as it happens (NDJSON), that's how 
 | Part | What I used |
 |---|---|
 | Agent loop | Plain Python, no framework ([ai/agent.py](ai/agent.py)) |
-| LLMs | Groq (OpenAI-compatible API) and Ollama, behind one small adapter ([ai/llm.py](ai/llm.py)) |
+| LLMs | OpenAI and Groq (both through the OpenAI API) and Ollama, behind one small adapter ([ai/llm.py](ai/llm.py)) |
 | Tools | Tavily search API with a `ddgs` (DuckDuckGo) fallback, `trafilatura` for pulling the main text out of a page |
 | Backend | FastAPI + Uvicorn, SQLite for saved chats |
 | Frontend | React 19 + Vite, plain CSS (light and dark mode), `react-markdown` |
@@ -66,7 +66,9 @@ You will need:
 
 - **Python 3.10+**
 - **Node.js 18+**
-- A free **Groq API key**: sign up at [console.groq.com](https://console.groq.com/keys) and create one. It takes a minute.
+- At least one API key for the online models:
+  - an **OpenAI API key** ([platform.openai.com](https://platform.openai.com/api-keys)): paid, gives the best answers, and becomes the default model, or
+  - a free **Groq API key** ([console.groq.com](https://console.groq.com/keys)). It takes a minute to get one.
 - Optional: a free **Tavily API key** from [app.tavily.com](https://app.tavily.com) for better search results. Skip it and DuckDuckGo is used instead.
 
 Then:
@@ -80,7 +82,7 @@ cd Web-Search-Agent
 
 Open **http://localhost:5180** and ask something.
 
-`setup.sh` checks your Python and Node versions, installs everything (Python packages go into a local `.venv`), asks you to paste your Groq key (and optionally a Tavily key) and then tests the Groq key. The key is saved in a `.env` file, which is git-ignored, so it never gets pushed by mistake. If you prefer, you can also copy `.env.example` to `.env` and put your key there yourself.
+`setup.sh` checks your Python and Node versions, installs everything (Python packages go into a local `.venv`), asks for your keys (OpenAI and/or Groq, plus an optional Tavily key) and then tests each one with its provider. The key is saved in a `.env` file, which is git-ignored, so it never gets pushed by mistake. If you prefer, you can also copy `.env.example` to `.env` and put your key there yourself.
 
 `launch.sh` starts the backend (port 8000) and the UI (port 5180) in the background, waits till both are ready and gives you the link. You can close the terminal after that, the app keeps running. If the app is already running, it stops the old copy first, so you never end up with two copies fighting for the same port.
 
@@ -110,7 +112,7 @@ Prefer to see everything in the terminal? `./start.sh` runs the app in the foreg
 Web-Search-Agent/
 ├── ai/                    # the AI side of the project — everything above the API layer
 │   ├── agent.py           # the ReAct agent loop, tools menu, memory, citations
-│   ├── llm.py             # model list + one adapter for Groq and one for Ollama
+│   ├── llm.py             # model list + one adapter for OpenAI/Groq and one for Ollama
 │   └── tools.py           # web_search() (Tavily or DuckDuckGo) and read_page()
 ├── evals/                 # measuring the agent (see "Evals" below)
 │   ├── cases.json         # the test questions and what a good answer must contain
@@ -151,6 +153,7 @@ I did not write this in one go. Each phase added one idea on top of the last one
 | 6 | Model picker (online and local) | Most providers speak the same OpenAI-style API, so one adapter can hide the differences |
 | 7 | Tavily search, with DuckDuckGo as fallback | A clean tool interface means you can swap the engine underneath and nothing else changes |
 | 8 | Evals: automatic scoring on fixed test questions | Measure, don't guess. And always check the grader before you blame the agent |
+| 9 | OpenAI models (GPT-5.5, GPT-5.4 mini, GPT-4.1 mini) | When providers share one API, a new provider is one client and a few lines. Then the evals tell you if it's any good |
 
 ## Evals
 
@@ -184,7 +187,18 @@ The checks are plain code, so the score is the same every time you grade the sam
 .venv/bin/python -m evals.run --regrade evals/results/<file>.json   # re-score, no model calls
 ```
 
-My first run across all models looked like this:
+Later I added OpenAI's models and ran the same suite on them before trusting them:
+
+```
+  Model              Passed   Rate  Avg time  Tools/q  Retries  Skipped
+  GPT-5.5            10/10    100%      4.1s      0.6        0        0
+  GPT-5.4 mini       10/10    100%      4.9s      0.8        0        0
+  GPT-4.1 mini        9/10     90%      3.6s      0.6        0        0
+```
+
+GPT-4.1 mini's one miss was real this time: it read the Python docs page and got the answer right, but didn't cite it. After the GPT-OSS lesson below, I checked the grader first before believing that.
+
+The first run across the Groq and local models looked like this:
 
 ```
   Model              Passed   Rate  Avg time  Tools/q  Retries  Skipped
@@ -205,10 +219,11 @@ The local model has no limits at all, so it's the one to use when you want to ru
 
 ## Things to know
 
+- **OpenAI is paid per use.** Every question makes a few model calls, so keep an eye on your usage page. GPT-5.4 mini is cheap; GPT-5.5 costs noticeably more.
 - **Groq's free tier has per-minute *and* per-day limits** (8,000 tokens per minute and 200,000 tokens per day, per model). A normal question is fine. If a question needs many searches and hits the per-minute limit, the app waits and retries by itself, so the answer just comes slower. The daily limit doesn't reset for hours, so if you hit that one, switch to another model from the menu (each model has its own budget) or use the local model, which has no limits.
 - **Search can fail sometimes.** DuckDuckGo occasionally refuses a request, so it retries up to 3 times. If Tavily fails (bad key, out of credits, no internet), the agent quietly falls back to DuckDuckGo instead of failing the question.
 - **Some websites block bots** (formula1.com, reuters.com for example). When a page can't be read, the agent sees the error and tries another one.
-- **Models sometimes write a broken tool call.** Groq rejects it and the agent quietly asks the model to try again (you'll see "wrote a tool call it couldn't finish" in the trace). It happens in roughly 1 out of 5 questions with the smaller models.
+- **Models sometimes write a broken tool call.** The provider rejects it and the agent quietly asks the model to try again (you'll see "wrote a tool call it couldn't finish" in the trace). It happens in roughly 1 out of 5 questions with the smaller models.
 - **Answers can still be wrong.** Smaller models especially can misread a page. That's why every answer shows its sources, so please check them for anything important.
 - The **local model** (Qwen3 14B) only shows up as available if you already have [Ollama](https://ollama.com) running with `qwen3:14b` pulled. It's optional, the online models work without it.
 

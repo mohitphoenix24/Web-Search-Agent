@@ -88,9 +88,10 @@ def infra_problem(e: Exception) -> dict | None:
         message = e.body.get("message", str(e)) if isinstance(e.body, dict) else str(e)
         wait = re.search(r"try again in ([\w.]+)", message)
         per_day = "per day" in message.lower() or "(TPD)" in message or "(RPD)" in message
+        no_credit = getattr(e, "code", None) == "insufficient_quota" or "insufficient_quota" in str(e)  # OpenAI: out of money
         return {
-            "reason": "daily quota used up" if per_day else "rate limit",
-            "fatal": per_day,  # a daily limit won't clear by retrying the next case
+            "reason": "no credit left" if no_credit else "daily quota used up" if per_day else "rate limit",
+            "fatal": per_day or no_credit,  # these won't clear by retrying the next case
             "wait": wait.group(1).rstrip(".") if wait else None,
         }
     if isinstance(e, (openai.APIConnectionError, ConnectionError)):

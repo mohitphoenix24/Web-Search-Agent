@@ -34,7 +34,7 @@ export default function ModelPicker({ models, value, onChange }) {
       >
         <span className={`status-dot ${selected?.available ? "" : "off"}`} />
         <span className="model-btn-name">{selected?.name ?? "Choose a model"}</span>
-        {selected && <span className={`provider-tag ${selected.provider}`}>{selected.provider === "groq" ? "Online" : "Local"}</span>}
+        {selected && <span className={`provider-tag ${selected.provider}`}>{selected.provider === "ollama" ? "Local" : "Online"}</span>}
         <ChevronIcon size={14} className={`chev ${open ? "open" : ""}`} />
       </button>
 

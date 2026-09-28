@@ -63,14 +63,24 @@ def delete_chat(chat_id: int):
     return {"ok": True}
 
 
+def provider_of(e: Exception) -> tuple[str, str]:
+    """Which online provider an error came from, and the name of its key."""
+    request = getattr(e, "request", None)
+    host = request.url.host if request is not None else ""
+    return ("Groq", "GROQ_API_KEY") if "groq" in host else ("OpenAI", "OPENAI_API_KEY")
+
+
 def friendly_error(e: Exception) -> str:
     """Turn provider errors into messages a person can act on."""
-    if isinstance(e, openai.RateLimitError):
-        return "Groq's free-tier limit was reached (tokens per minute). Wait a minute, or pick another model."
-    if isinstance(e, openai.AuthenticationError):
-        return "Groq rejected the API key. Check GROQ_API_KEY in your .env file."
-    if isinstance(e, openai.APIConnectionError):
-        return "Can't reach Groq. Check your internet connection."
+    if isinstance(e, (openai.RateLimitError, openai.AuthenticationError, openai.APIConnectionError)):
+        name, key = provider_of(e)
+        if isinstance(e, openai.AuthenticationError):
+            return f"{name} rejected the API key. Check {key} in your .env file."
+        if isinstance(e, openai.APIConnectionError):
+            return f"Can't reach {name}. Check your internet connection."
+        if getattr(e, "code", None) == "insufficient_quota" or "insufficient_quota" in str(e):
+            return f"Your {name} account has no credit left. Add billing on their site, or pick another model."
+        return f"{name}'s rate limit was reached. Wait a minute, or pick another model."
     if is_bad_tool_call(e):
         return "The model kept writing tool calls it couldn't finish. Try asking again, or pick another model."
     if isinstance(e, ConnectionError):

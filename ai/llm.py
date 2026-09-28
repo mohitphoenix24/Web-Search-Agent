@@ -1,13 +1,14 @@
 """
-THE BRAIN (LLM) — Phase 6: pick your model, online or local.
+THE BRAIN (LLM) — Phase 6: pick your model, online or local (+ OpenAI later).
 
 The rest of the app only calls chat_stream(model_id, messages, tools).
 It doesn't know or care which company runs the model. This file hides the
 differences between providers behind one small interface — an "adapter".
 
-  • Online (Groq): speaks the OpenAI-compatible API — the request format
-    OpenAI invented and most providers now copy. We use the `openai` library
-    and just point it at Groq's URL.
+  • Online (OpenAI and Groq): both speak the OpenAI API — the request format
+    OpenAI invented and most providers now copy. So ONE function talks to
+    both: the `openai` library, pointed at a different URL for Groq.
+    Adding OpenAI itself took one client and three lines in MODELS.
   • Local (Ollama): we use Ollama's own library, because only that one lets
     us raise the context window (Ollama's default of 4,096 tokens is too
     small for full web pages).
@@ -28,29 +29,42 @@ import ollama
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()  # reads GROQ_API_KEY from the .env file (created by setup.sh)
+load_dotenv()  # reads OPENAI_API_KEY / GROQ_API_KEY from the .env file (created by setup.sh)
 
 # Every model you can pick in the UI.
-# (Groq's free tier allows 8,000 tokens per minute per model.)
+# "params" overrides request settings for one model. None removes a setting:
+# GPT-5.5 is a reasoning model and rejects `temperature`.
+# (The newest gpt-6 / gpt-5.6 models are left out on purpose: in this API they
+# only allow tools with their reasoning switched off.)
 MODELS = [
-    {"id": "qwen/qwen3.8-27b", "provider": "groq", "name": "Qwen 3.8 27B", "note": "Fast and accurate · recommended"},
+    {"id": "gpt-5.4-mini", "provider": "openai", "name": "GPT-5.4 mini", "note": "Fast, cheap and accurate · recommended"},
+    {"id": "gpt-5.5", "provider": "openai", "name": "GPT-5.5", "note": "Strongest · thinks before answering · costs more",
+     "params": {"temperature": None}},
+    {"id": "gpt-4.1-mini", "provider": "openai", "name": "GPT-4.1 mini", "note": "Fastest to respond"},
+    {"id": "qwen/qwen3.8-27b", "provider": "groq", "name": "Qwen 3.8 27B", "note": "Free tier · fast"},
     {"id": "openai/gpt-oss-120b", "provider": "groq", "name": "GPT-OSS 120B", "note": "Most careful · shows its reasoning · slower"},
     {"id": "openai/gpt-oss-20b", "provider": "groq", "name": "GPT-OSS 20B", "note": "Lighter version of GPT-OSS"},
     {"id": "qwen3:14b", "provider": "ollama", "name": "Qwen3 14B", "note": "Runs on your GPU · private · no limits"},
 ]
-DEFAULT_MODEL = "qwen/qwen3.8-27b"
+# OpenAI when there's a key for it, otherwise Groq's free tier
+DEFAULT_MODEL = "gpt-5.4-mini" if os.environ.get("OPENAI_API_KEY") else "qwen/qwen3.8-27b"
 
 PROVIDERS = {
-    "groq": {"label": "Online · Groq", "url": "https://api.groq.com/openai/v1"},
+    "openai": {"label": "Online · OpenAI", "url": None, "key": "OPENAI_API_KEY"},  # None = OpenAI's own URL
+    "groq": {"label": "Online · Groq", "url": "https://api.groq.com/openai/v1", "key": "GROQ_API_KEY"},
     "ollama": {"label": "Local · Ollama", "url": "http://localhost:11434"},
 }
 
 THINK_LOCAL = False  # Qwen3 can "think" before answering. Off = much faster.
 NUM_CTX = 16384      # context window for local models, in tokens
 
-# Groq: the key comes from the GROQ_API_KEY environment variable (never write it in code).
-# max_retries: the free tier has a tokens-per-minute limit; wait and retry when we hit it.
-groq_client = OpenAI(base_url=PROVIDERS["groq"]["url"], api_key=os.environ.get("GROQ_API_KEY", "missing"), max_retries=5)
+# Keys come from environment variables / .env — never write them in code.
+# max_retries: when we hit a rate limit, wait and retry instead of failing.
+online_clients = {
+    name: OpenAI(base_url=p["url"], api_key=os.environ.get(p["key"], "missing"), max_retries=5)
+    for name, p in PROVIDERS.items() if name != "ollama"
+}
+groq_client = online_clients["groq"]  # used by setup.sh to test the Groq key
 ollama_client = ollama.Client(host=PROVIDERS["ollama"]["url"])
 
 
@@ -61,13 +75,15 @@ def get_model(model_id: str) -> dict:
 def available_models() -> list[dict]:
     """MODELS, plus whether each one can be used right now (and why not)."""
     status = {}
-    if not os.environ.get("GROQ_API_KEY"):
-        status["groq"] = (set(), "GROQ_API_KEY is not set")
-    else:
+    for name, client in online_clients.items():
+        key = PROVIDERS[name]["key"]
+        if not os.environ.get(key):
+            status[name] = (set(), f"{key} is not set")
+            continue
         try:
-            status["groq"] = ({m.id for m in groq_client.with_options(timeout=5).models.list().data}, "")
+            status[name] = ({m.id for m in client.with_options(timeout=5).models.list().data}, "")
         except Exception:
-            status["groq"] = (set(), "Can't reach Groq")
+            status[name] = (set(), f"Can't reach {PROVIDERS[name]['label'].split('· ')[1]} (or the key was rejected)")
     try:
         status["ollama"] = ({m.model for m in ollama_client.list().models}, "")
     except Exception:
@@ -85,15 +101,19 @@ def available_models() -> list[dict]:
 def chat_stream(model_id: str, messages: list, tools: list | None = None):
     """One streamed LLM call to any model. Yields ("token" | "thinking" | "tool_calls", data)."""
     model = get_model(model_id)
-    if model["provider"] == "groq":
-        yield from _stream_openai_style(groq_client, model_id, messages, tools)
-    else:
+    if model["provider"] == "ollama":
         yield from _stream_ollama(model_id, messages, tools)
+    else:
+        yield from _stream_openai_style(online_clients[model["provider"]], model, messages, tools)
 
 
-def _stream_openai_style(client: OpenAI, model_id: str, messages: list, tools: list | None):
-    extra = {"tools": tools} if tools else {}
-    stream = client.chat.completions.create(model=model_id, messages=messages, stream=True, temperature=0.2, **extra)
+def _stream_openai_style(client: OpenAI, model: dict, messages: list, tools: list | None):
+    # Default settings, then the model's own overrides; None means "don't send it"
+    params = {"temperature": 0.2, **model.get("params", {})}
+    if tools:
+        params["tools"] = tools
+    params = {k: v for k, v in params.items() if v is not None}
+    stream = client.chat.completions.create(model=model["id"], messages=messages, stream=True, **params)
 
     calls = {}  # tool calls arrive in fragments: the name first, then the JSON arguments bit by bit
     for chunk in stream:
