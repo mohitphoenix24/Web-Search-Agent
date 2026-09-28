@@ -25,3 +25,6 @@ frontend/dist/
 # Local AI-assistant / editor tooling
 .claude/
 .agents/
+
+# Eval results (evals/run.py writes one file per run)
+evals/results/

@@ -1,0 +1,112 @@
+[
+  {
+    "id": "math-no-tools",
+    "tags": ["no-tools"],
+    "why": "Simple maths. The agent should answer straight away, without wasting a search.",
+    "question": "What is 17 × 23?",
+    "expect": {
+      "contains": ["391"],
+      "max_tool_calls": 0
+    }
+  },
+  {
+    "id": "capital-no-tools",
+    "tags": ["no-tools", "knowledge"],
+    "why": "A well-known fact. The system prompt says: answer these directly, no tools.",
+    "question": "What is the capital of Australia?",
+    "expect": {
+      "contains": ["Canberra"],
+      "max_tool_calls": 0
+    }
+  },
+  {
+    "id": "walrus-knowledge",
+    "tags": ["knowledge"],
+    "why": "Two facts in one question. Checks the answer covers both parts.",
+    "question": "Which PEP introduced the walrus operator in Python, and which Python version first had it?",
+    "expect": {
+      "contains": ["572", "3.8"]
+    }
+  },
+  {
+    "id": "sqlite-license",
+    "tags": ["knowledge"],
+    "why": "Plain fact. Easy to get subtly wrong (MIT? GPL?) if the model guesses.",
+    "question": "What license is SQLite released under?",
+    "expect": {
+      "contains": ["public domain"],
+      "not_contains": ["MIT license", "GPL"]
+    }
+  },
+  {
+    "id": "kilimanjaro",
+    "tags": ["knowledge"],
+    "why": "A name plus a number. The number can be in metres or feet, so either counts.",
+    "question": "What is the tallest mountain in Africa, and how tall is it?",
+    "expect": {
+      "contains": ["Kilimanjaro", ["5,895", "5895", "19,341", "19341"]]
+    }
+  },
+  {
+    "id": "spanish-gp-2026",
+    "tags": ["search"],
+    "why": "Recent news the model can't know from training. It has to search, and cite what it found.",
+    "question": "Who won the 2026 Spanish Grand Prix?",
+    "expect": {
+      "contains": ["Antonelli"],
+      "tools_used": ["web_search"],
+      "cites": true
+    }
+  },
+  {
+    "id": "python-314-release",
+    "tags": ["search"],
+    "why": "A date. Either 'October 2025' or 'Oct 7, 2025' style is fine.",
+    "question": "When was Python 3.14 released?",
+    "expect": {
+      "contains": ["2025", ["october", "oct"]]
+    }
+  },
+  {
+    "id": "read-given-url",
+    "tags": ["read"],
+    "why": "The user gives a URL. The agent should read that page, not search around it.",
+    "question": "Read https://docs.python.org/3/whatsnew/3.14.html and tell me which PEP added template string literals.",
+    "expect": {
+      "contains": ["750"],
+      "tools_used": ["read_page"],
+      "cites": true
+    }
+  },
+  {
+    "id": "memory-followup",
+    "tags": ["memory"],
+    "why": "'he' and 'it' only make sense with the earlier turn. Tests that memory is used.",
+    "history": [
+      {
+        "question": "Who created the Linux kernel?",
+        "answer": "The Linux kernel was created by Linus Torvalds."
+      }
+    ],
+    "question": "In what year did he first release it?",
+    "expect": {
+      "contains": ["1991"]
+    }
+  },
+  {
+    "id": "memory-followup-search",
+    "tags": ["memory", "search"],
+    "why": "A follow-up that needs a NEW fact. Memory only has the old answer, so it must search again, with a full query.",
+    "history": [
+      {
+        "question": "Who won the 2026 Spanish Grand Prix?",
+        "answer": "Kimi Antonelli won the 2026 Spanish Grand Prix for Mercedes."
+      }
+    ],
+    "question": "And who finished second?",
+    "expect": {
+      "contains": ["Verstappen"],
+      "tools_used": ["web_search"]
+    }
+  }
+]
