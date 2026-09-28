@@ -21,7 +21,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import db
-from agent import MAX_HISTORY_TURNS, MAX_STEPS, run_agent
+from agent import MAX_HISTORY_TURNS, MAX_STEPS, is_bad_tool_call, run_agent
 from llm import DEFAULT_MODEL, available_models, get_model
 
 app = FastAPI(title="Web Search Agent")
@@ -71,6 +71,8 @@ def friendly_error(e: Exception) -> str:
         return "Groq rejected the API key. Check GROQ_API_KEY in your .env file."
     if isinstance(e, openai.APIConnectionError):
         return "Can't reach Groq. Check your internet connection."
+    if is_bad_tool_call(e):
+        return "The model kept writing tool calls it couldn't finish. Try asking again, or pick another model."
     if isinstance(e, ConnectionError):
         return "Can't reach Ollama. Is it running? (ollama serve)"
     if isinstance(e, ollama.ResponseError):

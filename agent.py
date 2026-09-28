@@ -41,7 +41,7 @@ import json
 import re
 from datetime import date
 
-from openai import BadRequestError
+from openai import APIError
 
 from llm import DEFAULT_MODEL, chat_stream
 from tools import read_page, web_search
@@ -188,6 +188,19 @@ INVALID_TOOL_CALL_HINT = (
 )
 
 
+def is_bad_tool_call(error: Exception) -> bool:
+    """Did the model write a tool call the provider couldn't parse?
+
+    Groq validates tool calls and rejects broken ones. The error looks
+    different depending on how we asked:
+      - normal request:  BadRequestError "... tool_use_failed ..."
+      - streamed request: APIError "Failed to call a function..." (mid-stream)
+    Both mean the same thing: the model made a mistake and should try again.
+    """
+    message = str(error).lower()
+    return "tool_use_failed" in message or "failed to call a function" in message
+
+
 def think(model_id: str, messages: list, step: int, tools: list | None):
     """One streamed LLM call. Yields a "token" event for every piece of text,
     and returns (full_text, tool_calls) when the model is done."""
@@ -233,12 +246,13 @@ def run_agent(question: str, history: list[dict] | None = None, model_id: str = 
         # then gives us think()'s return value when the LLM is finished.
         try:
             content, tool_calls = yield from think(model_id, messages, step, tools=TOOLS)
-        except BadRequestError as e:
-            # Groq checks tool calls and rejects broken ones ("tool_use_failed").
-            # Don't crash: tell the LLM its mistake and let it try again.
-            if "tool_use_failed" not in str(e):
+        except APIError as e:
+            # Don't crash on a broken tool call: tell the LLM its mistake and
+            # let it try again. Anything else (rate limit, no internet, bad
+            # key) is a real problem, so we pass it on to the server.
+            if not is_bad_tool_call(e):
                 raise
-            yield {"type": "retry", "step": step, "message": "The LLM made an invalid tool call. Asked it to fix it."}
+            yield {"type": "retry", "step": step, "message": "The LLM wrote a tool call it couldn't finish. Asked it to try again."}
             messages.append({"role": "user", "content": INVALID_TOOL_CALL_HINT})
             continue
 
