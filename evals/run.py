@@ -25,6 +25,10 @@ Usage (from the project root):
   python -m evals.run --repeat 3               # run each case 3 times (flakiness)
   python -m evals.run --only search            # only cases with this tag or id
   python -m evals.run --regrade evals/results/<file>.json   # re-score, no model calls
+  python -m evals.run --model gpt-5.4-mini --include-paid   # paid models need this flag
+
+Paid models (OpenAI) are never run unless you pass --include-paid: a full
+run is dozens of billed requests per model, so it has to be a choice.
 """
 
 import argparse
@@ -304,6 +308,7 @@ def main():
     parser.add_argument("--repeat", type=int, default=1, help="run each case N times to spot flaky ones")
     parser.add_argument("--only", help="only run cases with this tag or id")
     parser.add_argument("--regrade", metavar="FILE", help="re-score a saved results file with the current checks (no model calls)")
+    parser.add_argument("--include-paid", action="store_true", help="allow paid models (OpenAI). Each run costs money")
     args = parser.parse_args()
 
     cases = json.loads(CASES_FILE.read_text())
@@ -318,14 +323,7 @@ def main():
             print_comparison(results)
         sys.exit(0 if all_passed(results) else 1)
 
-    if args.all:
-        model_ids = [m["id"] for m in available_models() if m["available"]]
-    else:
-        model_ids = args.model or [DEFAULT_MODEL]
-        for m in model_ids:
-            if get_model(m) is None:
-                known = ", ".join(x["id"] for x in available_models())
-                sys.exit(f"Unknown model {m!r}. Known models: {known}")
+    model_ids = pick_models(args)
 
     results = [evaluate(m, cases, args.repeat) for m in model_ids]
     if len(results) > 1:
@@ -340,6 +338,27 @@ def main():
     print(dim(f"\nSaved: {out.relative_to(EVALS_DIR.parent)}   (re-score it later: --regrade {out.relative_to(EVALS_DIR.parent)})"))
 
     sys.exit(0 if all_passed(results) else 1)
+
+
+def pick_models(args) -> list[str]:
+    """Which models to test. Paid models only with --include-paid."""
+    if args.all:
+        usable = [m for m in available_models() if m["available"]]
+        skipped = [m["id"] for m in usable if m["paid"] and not args.include_paid]
+        if skipped:
+            print(dim(f"Skipping paid models (add --include-paid to test them): {', '.join(skipped)}"))
+        return [m["id"] for m in usable if m["id"] not in skipped]
+
+    model_ids = args.model or [DEFAULT_MODEL]
+    for m in model_ids:
+        model = get_model(m)
+        if model is None:
+            known = ", ".join(x["id"] for x in available_models())
+            sys.exit(f"Unknown model {m!r}. Known models: {known}")
+        if model.get("paid") and not args.include_paid:
+            sys.exit(f"{m} is a paid model: an eval run is dozens of billed requests. "
+                     f"Add --include-paid if you really want to run it.")
+    return model_ids
 
 
 def all_passed(results: list[dict]) -> bool:

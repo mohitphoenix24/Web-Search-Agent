@@ -116,10 +116,12 @@ export default function App() {
     getInfo()
       .then((i) => {
         setInfo(i);
-        // Use the saved model if it can still be used, else the first usable one
+        // Use the model you picked last time if it still works. Otherwise a
+        // FREE one: a paid model is never chosen for you, only by you.
         const usable = i.models.filter((m) => m.available);
         const saved = usable.find((m) => m.id === savedModel());
-        setModel((saved ?? usable.find((m) => m.id === i.default_model) ?? usable[0] ?? i.models[0])?.id);
+        const free = usable.filter((m) => !m.paid);
+        setModel((saved ?? free.find((m) => m.id === i.default_model) ?? free[0])?.id ?? null);
       })
       .catch(() => setInfo({ offline: true }));
     refreshChats();
@@ -178,7 +180,7 @@ export default function App() {
 
   async function ask(q) {
     q = q.trim();
-    if (!q || running) return;
+    if (!q || running || !model) return;
 
     const turn = newTurn(q);
     setTurns((ts) => [...ts, turn]);
@@ -234,7 +236,7 @@ export default function App() {
         ref={inputRef}
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder={idle ? "Ask a question…" : "Ask a follow-up…"}
+        placeholder={!model && info && !info.offline ? "Pick a model from the menu first…" : idle ? "Ask a question…" : "Ask a follow-up…"}
         aria-label="Ask a question"
         autoFocus
       />
@@ -243,7 +245,7 @@ export default function App() {
           <StopIcon size={14} /> Stop
         </button>
       ) : (
-        <button type="submit" className="ask-btn" disabled={!input.trim()}>
+        <button type="submit" className="ask-btn" disabled={!input.trim() || !model} title={model ? "" : "Pick a model first"}>
           Ask <ArrowIcon size={16} />
         </button>
       )}

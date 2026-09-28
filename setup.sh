@@ -58,7 +58,8 @@ ask_key() {
 }
 
 step "API keys for the online models"
-echo "    You need at least one. OpenAI is paid and gives the best answers;"
+echo "    You need at least one. OpenAI is paid and gives the best answers (the"
+echo "    app only uses it when you pick an OpenAI model yourself);"
 echo "    Groq has a free tier."
 if has_key OPENAI_API_KEY sk-; then
   ok "OpenAI key found"

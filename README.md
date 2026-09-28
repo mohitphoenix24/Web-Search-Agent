@@ -67,8 +67,8 @@ You will need:
 - **Python 3.10+**
 - **Node.js 18+**
 - At least one API key for the online models:
-  - an **OpenAI API key** ([platform.openai.com](https://platform.openai.com/api-keys)): paid, gives the best answers, and becomes the default model, or
-  - a free **Groq API key** ([console.groq.com](https://console.groq.com/keys)). It takes a minute to get one.
+  - a free **Groq API key** ([console.groq.com](https://console.groq.com/keys)). It takes a minute to get one, and it's all you need, or
+  - an **OpenAI API key** ([platform.openai.com](https://platform.openai.com/api-keys)): paid, gives the best answers. OpenAI models are **opt-in**: the app never picks one for you (see below).
 - Optional: a free **Tavily API key** from [app.tavily.com](https://app.tavily.com) for better search results. Skip it and DuckDuckGo is used instead.
 
 Then:
@@ -134,7 +134,7 @@ The `ai/` files also run on their own from the terminal (as modules, with `-m`, 
 
 ```bash
 .venv/bin/python -m ai.tools                          # try the two tools
-.venv/bin/python -m ai.llm                            # every model says hi
+.venv/bin/python -m ai.llm                            # every free model says hi (--include-paid for OpenAI)
 .venv/bin/python -m ai.agent                          # a 2-question chat in the terminal
 .venv/bin/python -m ai.agent openai/gpt-oss-120b      # same, with another model
 ```
@@ -185,6 +185,7 @@ The checks are plain code, so the score is the same every time you grade the sam
 .venv/bin/python -m evals.run --repeat 3              # run each case 3 times, flags flaky ones
 .venv/bin/python -m evals.run --only search           # only cases with this tag (or id)
 .venv/bin/python -m evals.run --regrade evals/results/<file>.json   # re-score, no model calls
+.venv/bin/python -m evals.run --model gpt-5.4-mini --include-paid  # paid models need this flag
 ```
 
 Later I added OpenAI's models and ran the same suite on them before trusting them:
@@ -219,7 +220,7 @@ The local model has no limits at all, so it's the one to use when you want to ru
 
 ## Things to know
 
-- **OpenAI is paid per use.** Every question makes a few model calls, so keep an eye on your usage page. GPT-5.4 mini is cheap; GPT-5.5 costs noticeably more.
+- **OpenAI is paid per use, so it's opt-in everywhere.** The default model is always a free one, and the app never switches to a paid model on its own: the menu marks them "Paid", and they're only used when you pick one (your pick is remembered, with a Paid tag on the button). The app doesn't even contact OpenAI to draw the menu. The evals and the `ai.llm` self-test skip paid models unless you add `--include-paid`. Each question makes a few model calls; GPT-5.4 mini is cheap, GPT-5.5 costs noticeably more.
 - **Groq's free tier has per-minute *and* per-day limits** (8,000 tokens per minute and 200,000 tokens per day, per model). A normal question is fine. If a question needs many searches and hits the per-minute limit, the app waits and retries by itself, so the answer just comes slower. The daily limit doesn't reset for hours, so if you hit that one, switch to another model from the menu (each model has its own budget) or use the local model, which has no limits.
 - **Search can fail sometimes.** DuckDuckGo occasionally refuses a request, so it retries up to 3 times. If Tavily fails (bad key, out of credits, no internet), the agent quietly falls back to DuckDuckGo instead of failing the question.
 - **Some websites block bots** (formula1.com, reuters.com for example). When a page can't be read, the agent sees the error and tries another one.

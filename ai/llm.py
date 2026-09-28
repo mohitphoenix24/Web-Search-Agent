@@ -36,22 +36,27 @@ load_dotenv()  # reads OPENAI_API_KEY / GROQ_API_KEY from the .env file (created
 # GPT-5.5 is a reasoning model and rejects `temperature`.
 # (The newest gpt-6 / gpt-5.6 models are left out on purpose: in this API they
 # only allow tools with their reasoning switched off.)
+#
+# PAID MODELS ARE OPT-IN. They cost real money per request, so nothing uses
+# them unless a person picks one: the default is free, the UI never
+# auto-selects a paid model, and the evals / self-test skip them unless you
+# pass --include-paid.
 MODELS = [
-    {"id": "gpt-5.4-mini", "provider": "openai", "name": "GPT-5.4 mini", "note": "Fast, cheap and accurate · recommended"},
-    {"id": "gpt-5.5", "provider": "openai", "name": "GPT-5.5", "note": "Strongest · thinks before answering · costs more",
-     "params": {"temperature": None}},
-    {"id": "gpt-4.1-mini", "provider": "openai", "name": "GPT-4.1 mini", "note": "Fastest to respond"},
-    {"id": "qwen/qwen3.8-27b", "provider": "groq", "name": "Qwen 3.8 27B", "note": "Free tier · fast"},
-    {"id": "openai/gpt-oss-120b", "provider": "groq", "name": "GPT-OSS 120B", "note": "Most careful · shows its reasoning · slower"},
-    {"id": "openai/gpt-oss-20b", "provider": "groq", "name": "GPT-OSS 20B", "note": "Lighter version of GPT-OSS"},
+    {"id": "qwen/qwen3.8-27b", "provider": "groq", "name": "Qwen 3.8 27B", "note": "Free tier · fast · recommended"},
+    {"id": "openai/gpt-oss-120b", "provider": "groq", "name": "GPT-OSS 120B", "note": "Free tier · shows its reasoning · slower"},
+    {"id": "openai/gpt-oss-20b", "provider": "groq", "name": "GPT-OSS 20B", "note": "Free tier · lighter GPT-OSS"},
     {"id": "qwen3:14b", "provider": "ollama", "name": "Qwen3 14B", "note": "Runs on your GPU · private · no limits"},
+    {"id": "gpt-5.4-mini", "provider": "openai", "name": "GPT-5.4 mini", "note": "Paid · fast, cheap for OpenAI", "paid": True},
+    {"id": "gpt-5.5", "provider": "openai", "name": "GPT-5.5", "note": "Paid · strongest · costs more", "paid": True,
+     "params": {"temperature": None}},
+    {"id": "gpt-4.1-mini", "provider": "openai", "name": "GPT-4.1 mini", "note": "Paid · fastest to respond", "paid": True},
 ]
-# OpenAI when there's a key for it, otherwise Groq's free tier
-DEFAULT_MODEL = "gpt-5.4-mini" if os.environ.get("OPENAI_API_KEY") else "qwen/qwen3.8-27b"
+DEFAULT_MODEL = "qwen/qwen3.8-27b"  # always a free one
 
 PROVIDERS = {
-    "openai": {"label": "Online · OpenAI", "url": None, "key": "OPENAI_API_KEY"},  # None = OpenAI's own URL
     "groq": {"label": "Online · Groq", "url": "https://api.groq.com/openai/v1", "key": "GROQ_API_KEY"},
+    # None = OpenAI's own URL. paid: never contacted just to check availability.
+    "openai": {"label": "Online · OpenAI (paid)", "url": None, "key": "OPENAI_API_KEY", "paid": True},
     "ollama": {"label": "Local · Ollama", "url": "http://localhost:11434"},
 }
 
@@ -80,6 +85,11 @@ def available_models() -> list[dict]:
         if not os.environ.get(key):
             status[name] = (set(), f"{key} is not set")
             continue
+        if PROVIDERS[name].get("paid"):
+            # Don't contact a paid provider just to draw the menu. If the key
+            # is set we list its models; a bad key shows up when it's used.
+            status[name] = ({m["id"] for m in MODELS if m["provider"] == name}, "")
+            continue
         try:
             status[name] = ({m.id for m in client.with_options(timeout=5).models.list().data}, "")
         except Exception:
@@ -94,7 +104,8 @@ def available_models() -> list[dict]:
         ids, problem = status[m["provider"]]
         if not problem and m["id"] not in ids:
             problem = "Not installed" if m["provider"] == "ollama" else "Not available"
-        result.append({**m, "provider_label": PROVIDERS[m["provider"]]["label"], "available": not problem, "problem": problem})
+        result.append({**m, "paid": m.get("paid", False), "provider_label": PROVIDERS[m["provider"]]["label"],
+                       "available": not problem, "problem": problem})
     return result
 
 
@@ -174,10 +185,18 @@ def _to_ollama_format(messages: list) -> list:
     return converted
 
 
-# Test without any UI:  python llm.py   (every model says hi, streamed)
+# Test without any UI (every model says hi, streamed):
+#   python -m ai.llm                   free models only
+#   python -m ai.llm --include-paid    also the paid OpenAI ones (costs money)
 if __name__ == "__main__":
+    import sys
+
+    include_paid = "--include-paid" in sys.argv
     for m in available_models():
         print(f"{m['name']:14} ", end="")
+        if m["paid"] and not include_paid:
+            print("(paid — skipped; add --include-paid to test it)")
+            continue
         if not m["available"]:
             print(f"(unavailable: {m['problem']})")
             continue
